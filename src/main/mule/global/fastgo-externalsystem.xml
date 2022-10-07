@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:ee="http://www.mulesoft.org/schema/mule/ee/core" xmlns:db="http://www.mulesoft.org/schema/mule/db"
+	xmlns:http="http://www.mulesoft.org/schema/mule/http"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/http http://www.mulesoft.org/schema/mule/http/current/mule-http.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/core http://www.mulesoft.org/schema/mule/ee/core/current/mule-ee.xsd">
+	<http:listener-config name="HTTP_Listener_config" doc:name="HTTP Listener config" doc:id="25239e47-eab1-4002-a428-854298e124b3" >
+		<http:listener-connection host="0.0.0.0" port="8081" />
+	</http:listener-config>
+	<db:config name="Database_Config" doc:name="Database Config" doc:id="fbd94c94-7af6-4690-9c3d-95c9d4891c8b" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="amit123" database="training" />
+	</db:config>
+	<db:config name="Database_Config1" doc:name="Database Config" doc:id="59428aff-5f40-4071-a7f3-da7a74f105b0" >
+		<db:my-sql-connection host="localhost" port="3306" user="root" password="amit123" database="training" />
+	</db:config>
+	<flow name="fastgo-externalsystemFlow" doc:id="fa09d166-3f12-4261-8c0e-63af5938a6b9" >
+		<http:listener doc:name="Listener" doc:id="50c3e6ef-320c-445d-b823-dc8bf9878357" config-ref="HTTP_Listener_config1" path="${http.listener.path}">
+			<http:error-response statusCode="#[vars.statuscode]" >
+				<http:body ><![CDATA[#[vars.errorMsg default "Critical Error"]]]></http:body>
+			</http:error-response>
+		</http:listener>
+		<ee:transform doc:name="Transform Message" doc:id="b81a798f-2533-4d6d-b898-f73a5c4054a9" >
+			<ee:message >
+			</ee:message>
+			<ee:variables >
+				<ee:set-variable variableName="transactionId" ><![CDATA[%dw 2.0
+output application/java
+---
+attributes.headers.transactionid]]></ee:set-variable>
+				<ee:set-variable variableName="serviceType" ><![CDATA[%dw 2.0
+output application/java
+---
+attributes.uriParams.serviceType]]></ee:set-variable>
+			</ee:variables>
+		</ee:transform>
+		<logger level="INFO" doc:name="Logger" doc:id="f65b97b3-68ae-48c6-b086-b3c5018f42d4" message="Request Received For FastGo External System For TransactionId:  #[vars.transactionid]"/>
+		<choice doc:name="Choice" doc:id="3dbfff95-ec8b-48a4-8fc7-9df3260721f9" >
+			<when expression="#[vars.serviceType == 'routes']">
+				<logger level="INFO" doc:name="Logger" doc:id="06f002fb-f5bc-4b66-8409-df6b35bf449d" />
+				<flow-ref doc:name="Flow Reference" doc:id="1a1e7f52-a750-4b3f-9ba3-eb54a9630cc0" name="FastGo-GetRoutes-implementationSub_Flow"/>
+			</when>
+			<when expression="#[vars.serviceType == 'schedules']">
+				<logger level="INFO" doc:name="Logger" doc:id="abf24a66-c083-4743-a6cd-d1c45b31c7bd" />
+				<flow-ref doc:name="Flow Reference" doc:id="e8889e00-8498-402e-8dac-e070f431e4af" name="FastGo-GetSchedules-implementationSub_Flow"/>
+			</when>
+			<otherwise >
+				<logger level="INFO" doc:name="Logger" doc:id="daf1d97e-a3e0-4989-abda-85bea9c7c86f" message="URI Parameter is not correct for FastGo External System For TransactionId #[attributes.headers.transactionid]"/>
+			</otherwise>
+			
+		</choice>
+		<logger level="INFO" doc:name="Logger" doc:id="5c887d6e-50dd-4c47-9821-ac01eae2cedc" message="Response Sent For FastGo External System For TransactionId #[vars.transactionid]"/>
+		<error-handler >
+			<on-error-propagate enableNotifications="true" logException="true" doc:name="On Error Propagate" doc:id="10c179f4-3730-45f4-99b6-b158ea5ef5f4" >
+				<logger level="INFO" doc:name="Logger" doc:id="f8bd8f64-dce8-47a1-9890-5136f4f332c8" message="Error Occured For FastGo External System For TransactionId : #[vars.transactionId] resaon : #[error.errorMessage] error Type : #[error.errorType]"/>
+				<ee:transform doc:name="Transform Message" doc:id="ac0d06de-a837-4488-8c93-b577ba801722" >
+					<ee:message >
+						<ee:set-payload ><![CDATA[%dw 2.0
+output application/java
+---
+{
+}]]></ee:set-payload>
+					</ee:message>
+					<ee:variables >
+						<ee:set-variable variableName="errorMsg" ><![CDATA[%dw 2.0
+output application/json
+---
+{
+ "ErrorCode": "XE1023",
+ "ErrorMessage": "Error In FASTGO System"
+}]]></ee:set-variable>
+						<ee:set-variable variableName="statuscode" ><![CDATA[%dw 2.0
+output application/java
+---
+500]]></ee:set-variable>
+					</ee:variables>
+				</ee:transform>
+			</on-error-propagate>
+		</error-handler>
+	</flow>
+</mule>
